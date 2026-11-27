@@ -9,6 +9,10 @@ function respond($ok, $error = null, $code = 200) {
     exit;
 }
 
+// Visitors on the Montenegrin page get replies in Montenegrin.
+$me = (($_POST['lang'] ?? '') === 'me');
+$t = function ($en, $cnr) use ($me) { return $me ? $cnr : $en; };
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respond(false, 'Method not allowed.', 405);
 }
@@ -36,18 +40,18 @@ if (!in_array($volume, $allowed, true)) {
 }
 
 if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    respond(false, 'Please fill in your name and a valid email address.', 422);
+    respond(false, $t('Please fill in your name and a valid email address.', 'Unesite ime i ispravnu e-mail adresu.'), 422);
 }
 // No line breaks allowed in values that go into mail headers.
 if (preg_match('/[\n\r]/', $name . $email)) {
-    respond(false, 'Please check your name and email address.', 422);
+    respond(false, $t('Please check your name and email address.', 'Provjerite ime i e-mail adresu.'), 422);
 }
 
 // Simple rate limit: one request per visitor every 30 seconds.
 session_start();
 $now = time();
 if (!empty($_SESSION['np_last_send']) && $now - $_SESSION['np_last_send'] < 30) {
-    respond(false, 'Please wait a moment before sending another request.', 429);
+    respond(false, $t('Please wait a moment before sending another request.', 'Sačekajte trenutak prije slanja novog upita.'), 429);
 }
 
 $to      = 'office@newpage.me';
@@ -55,7 +59,8 @@ $subject = '=?UTF-8?B?' . base64_encode('printers.newpage.me – quote request �
 $body    = "New quote request from printers.newpage.me\n\n"
          . "Name: $name\n"
          . "Email: $email\n"
-         . "Pages per month: $volume\n\n"
+         . "Pages per month: $volume\n"
+         . "Page language: " . ($me ? "Montenegrin" : "English") . "\n\n"
          . "Message:\n" . ($message === '' ? '(none)' : $message) . "\n";
 $headers = [
     'From: New Page website <noreply@newpage.me>',
@@ -69,4 +74,4 @@ if (mail($to, $subject, $body, implode("\r\n", $headers))) {
     $_SESSION['np_last_send'] = $now;
     respond(true);
 }
-respond(false, 'Sorry, the request could not be sent. Please email office@newpage.me.', 500);
+respond(false, $t('Sorry, the request could not be sent. Please email office@newpage.me.', 'Žao nam je, upit nije poslat. Pišite nam na office@newpage.me.'), 500);
